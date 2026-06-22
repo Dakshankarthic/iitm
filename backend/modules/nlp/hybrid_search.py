@@ -69,9 +69,30 @@ class HybridSearch:
         ollama_base = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
         # ChromaDB's OllamaEmbeddingFunction expects the base URL without /v1
         ollama_url = ollama_base.replace("/v1", "").rstrip("/")
+        
         try:
-            from chromadb.utils import embedding_functions  # type: ignore
-            self.embedding_function = embedding_functions.OllamaEmbeddingFunction(
+            import requests
+            from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
+            
+            class TimeoutOllamaEmbeddingFunction(EmbeddingFunction):
+                def __init__(self, url: str, model_name: str):
+                    self.url = url
+                    self.model_name = model_name
+                
+                def __call__(self, input: Documents) -> Embeddings:
+                    embeddings = []
+                    for text in input:
+                        # 5-second timeout to prevent Uvicorn/Nginx hangs (HTTP 504)
+                        response = requests.post(
+                            self.url,
+                            json={"model": self.model_name, "prompt": text},
+                            timeout=5.0
+                        )
+                        response.raise_for_status()
+                        embeddings.append(response.json()["embedding"])
+                    return embeddings
+
+            self.embedding_function = TimeoutOllamaEmbeddingFunction(
                 url=f"{ollama_url}/api/embeddings",
                 model_name=ollama_embed_model,
             )

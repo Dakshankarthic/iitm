@@ -630,6 +630,7 @@ class AgentEngine:
                     model=active_model,
                     messages=messages,
                     temperature=0.1,
+                    timeout=8.0,
                 )
                 final_text = self._strip_thinking_tags((response.choices[0].message.content or "").strip())
 

@@ -408,10 +408,75 @@ class ToolExecutor:
             ],
         }
 
+    # Generic/broad words that signal "give me an overview", not a specific lookup.
+    # If the model's keywords are mostly made of these, treat it as a broad
+    # request and fan out into several targeted core-topic lookups instead of
+    # running one vague semantic search that just returns whatever happens to
+    # share a word with the query.
+    _BROAD_QUERY_SIGNAL_WORDS = {
+        "basic", "basics", "general", "all", "overview", "everything",
+        "rules", "road", "driving", "traffic", "law", "laws", "regulations",
+        "regulation", "learn", "teach", "new", "beginner", "summary",
+    }
+
+    # The handful of topics every driver needs first. Each is a real,
+    # specific offence_code your fines.db / rules.json already knows about
+    # (see normalize.py's OFFENCE_ALIASES), so these are guaranteed to be
+    # valid lookups, not invented categories.
+    _CORE_TOPICS = [
+        "NO_HELMET",
+        "NO_SEATBELT",
+        "SPEED_EXCESS",
+        "DRUNK_DRIVING",
+        "MOBILE_PHONE",
+        "RED_LIGHT_JUMPING",
+    ]
+
+    def _is_broad_query(self, keywords: list) -> bool:
+        """True if the keywords look like a general 'teach me the rules'
+        request rather than a specific offence lookup."""
+        if not keywords:
+            return False
+        lowered = [k.lower().strip() for k in keywords]
+        broad_hits = sum(1 for k in lowered if k in self._BROAD_QUERY_SIGNAL_WORDS)
+        # Broad if most/all of the keywords are generic signal words, or if
+        # there are very few keywords and at least one is a signal word
+        # (covers cases like keywords=["basic", "rules"]).
+        return broad_hits > 0 and broad_hits >= max(1, len(lowered) - 1)
+
     def _search_rules(self, params: dict, gps: Optional[dict]) -> dict:
         keywords = params.get("keywords", [])
         if not keywords:
             return {"error": "No keywords provided"}
+
+        # ── Broad query fan-out ────────────────────────────────────────────
+        # Instead of trusting the model to make several separate tool calls
+        # for a general question, detect it here and deterministically pull
+        # the core topics ourselves. This guarantees a real, complete answer
+        # every time, regardless of what the model does on its own.
+        if self._is_broad_query(keywords):
+            state = params.get("state", "ALL")
+            core_rules = []
+            for offence_code in self._CORE_TOPICS:
+                rule = None
+                if self.rules_loader:
+                    rule = self.rules_loader.get_by_offence_code(offence_code, state)
+                if rule:
+                    core_rules.append({
+                        "rule_id": rule.get("rule_id"),
+                        "section": rule.get("section"),
+                        "title": rule.get("title"),
+                        "description": rule.get("description"),
+                    })
+            if core_rules:
+                return {
+                    "found": True,
+                    "broad_overview": True,
+                    "count": len(core_rules),
+                    "rules": core_rules,
+                }
+            # If even the core topics aren't in rules_loader for some reason,
+            # fall through to normal search below rather than failing outright.
 
         # Use NLP HybridSearch RAG if available
         if self.hybrid_search:

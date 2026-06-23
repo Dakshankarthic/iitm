@@ -416,7 +416,9 @@ class ToolExecutor:
         # Use NLP HybridSearch RAG if available
         if self.hybrid_search:
             query = " ".join(keywords)
-            results = self.hybrid_search.search(query, top_k=3)
+            # Broad/generic queries (few keywords) benefit from more results
+            top_k = 6 if len(keywords) <= 2 else 3
+            results = self.hybrid_search.search(query, top_k=top_k)
             if not results:
                 return {
                     "found": False,
@@ -429,6 +431,7 @@ class ToolExecutor:
                 "rules": [
                     {
                         "rule_id": r.get("rule_id"),
+                        "section": r.get("metadata", {}).get("section"),
                         "title": r.get("metadata", {}).get("title"),
                         "description": r.get("content"),
                         "score": r.get("score")

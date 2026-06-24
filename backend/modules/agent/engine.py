@@ -515,6 +515,10 @@ class AgentEngine:
                     "model": active_model,
                     "messages": messages,
                     "temperature": 0.1,
+<<<<<<< HEAD
+=======
+                    "timeout": 30.0,
+>>>>>>> 7947d8c (Increase Ollama timeout from 8s to 30s to prevent synthesis cold-start timeouts)
                 }
                 if openai_tools:
                     create_kwargs["tools"] = openai_tools
@@ -630,7 +634,7 @@ class AgentEngine:
                     model=active_model,
                     messages=messages,
                     temperature=0.1,
-                    timeout=8.0,
+                    timeout=30.0,
                 )
                 final_text = self._strip_thinking_tags((response.choices[0].message.content or "").strip())
 

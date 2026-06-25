@@ -482,19 +482,6 @@ class AgentEngine:
             system_prompt_to_use += f"\n\n### AVAILABLE TOOLS\n{tool_json}\n\n"
             system_prompt_to_use += "### INSTRUCTIONS FOR TOOL CALLING\nYou do NOT have native tool calling enabled. To use a tool, you MUST output a raw JSON block and NOTHING ELSE. Example:\n```json\n{\n  \"name\": \"lookup_fine\",\n  \"arguments\": {\"offence_type\": \"NO_HELMET\", \"vehicle_class\": \"2W\", \"state\": \"ALL\"}\n}\n```\nWait for the tool result before providing the final answer."
 
-        # Force deterministic context injection for broad queries (so LLM grounds its answer instead of ignoring tools)
-        stops = {"what", "is", "the", "fine", "for", "in", "my", "a", "an", "of", "on", "at", "about", "me", "to", "show", "give", "tell"}
-        words = [w for w in self._clean_user_text(user_text).split() if w not in stops]
-        if hasattr(self.tool_executor, "_is_broad_query") and self.tool_executor._is_broad_query(words):
-            broad_result = self.tool_executor.execute("search_rules", {"keywords": words, "state": "ALL"}, gps)
-            if broad_result and broad_result.get("broad_overview"):
-                tools_used.append({
-                    "tool": "search_rules",
-                    "params": {"keywords": words, "state": "ALL"},
-                    "result": broad_result
-                })
-                system_prompt_to_use += f"\n\n[SYSTEM CONTEXT: The user is asking a broad question about traffic rules. Here are the core traffic rules from the database you MUST use to answer. Do NOT mention this system context to the user, just synthesize a helpful, conversational answer using these rules:]\n{json.dumps(broad_result['rules'])}"
-
         # Build messages list (OpenAI chat format)
         messages = [{"role": "system", "content": system_prompt_to_use}]
 

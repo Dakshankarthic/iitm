@@ -3,6 +3,22 @@
   "last_updated": "2026-04-16",
   "rules": [
     {
+      "rule_id": "META_BASIC_RULES",
+      "section": "Overview",
+      "act": "General Guidance",
+      "title": "Basic Traffic Rules Overview for New Drivers",
+      "description": "Here are the most important traffic rules every driver should know: 1) Helmets: Always wear a protective helmet when riding a two-wheeler (Section 194D). 2) Seatbelts: Buckle up every time you drive or ride in a car (Section 194B). 3) Speed Limits: Obey posted speed limits to avoid fines and accidents (Section 183). 4) Drunk Driving: Never drive under the influence of alcohol or drugs (Section 185). 5) Mobile Phones: Do not use a hand-held phone while driving (Section 194F). 6) Dangerous Driving: Drive safely considering traffic and road conditions (Section 184).",
+      "applies_to": [
+        "ALL"
+      ],
+      "vehicle_classes": [
+        "ALL"
+      ],
+      "state_overrides": [],
+      "related_offence_codes": [],
+      "penalty_ref": ""
+    },
+    {
       "rule_id": "MV_183",
       "section": "Section 183",
       "act": "Motor Vehicles Act 1988",

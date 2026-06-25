@@ -208,30 +208,6 @@ class AgentEngine:
             if conversational:
                 return conversational
 
-            # Deterministic fast-path for broad queries (bypass LLM synthesis)
-            stops = {"what", "is", "the", "fine", "for", "in", "my", "a", "an", "of", "on", "at", "about", "me", "to", "show", "give", "tell"}
-            words = [w for w in clean_text.split() if w not in stops]
-            if hasattr(self.tool_executor, "_is_broad_query") and self.tool_executor._is_broad_query(words):
-                result = self.tool_executor.execute("search_rules", {"keywords": words, "state": "ALL"}, gps)
-                if isinstance(result, dict) and result.get("broad_overview"):
-                    intro = "Here are the basic traffic rules every driver should know:\n\n"
-                    blocks = []
-                    for r in result.get("rules", []):
-                        title = r.get("title") or "Traffic Rule"
-                        section = r.get("section")
-                        desc = r.get("description") or ""
-                        header = f"📜 **{title}**" + (f" (Section {section})" if section else "")
-                        blocks.append(f"{header}\n{desc}")
-                    final_text = intro + "\n\n".join(blocks)
-                    final_text += "\n\n> [!NOTE]\n> This is informational only. Consult official sources or a legal professional for official advice."
-                    return {
-                        "status": "ok",
-                        "response": final_text,
-                        "tools_used": [{"tool": "search_rules", "params": {"keywords": words, "state": "ALL"}, "result": result}],
-                        "agent_powered": True,
-                        "model": self._active_model_label()
-                    }
-
         history = conversation_history or []
 
         # Route image requests to Gemini if Ollama lacks vision capabilities
@@ -505,6 +481,19 @@ class AgentEngine:
             tool_json = json.dumps(TOOL_DEFINITIONS, indent=2)
             system_prompt_to_use += f"\n\n### AVAILABLE TOOLS\n{tool_json}\n\n"
             system_prompt_to_use += "### INSTRUCTIONS FOR TOOL CALLING\nYou do NOT have native tool calling enabled. To use a tool, you MUST output a raw JSON block and NOTHING ELSE. Example:\n```json\n{\n  \"name\": \"lookup_fine\",\n  \"arguments\": {\"offence_type\": \"NO_HELMET\", \"vehicle_class\": \"2W\", \"state\": \"ALL\"}\n}\n```\nWait for the tool result before providing the final answer."
+
+        # Force deterministic context injection for broad queries (so LLM grounds its answer instead of ignoring tools)
+        stops = {"what", "is", "the", "fine", "for", "in", "my", "a", "an", "of", "on", "at", "about", "me", "to", "show", "give", "tell"}
+        words = [w for w in self._clean_user_text(user_text).split() if w not in stops]
+        if hasattr(self.tool_executor, "_is_broad_query") and self.tool_executor._is_broad_query(words):
+            broad_result = self.tool_executor.execute("search_rules", {"keywords": words, "state": "ALL"}, gps)
+            if broad_result and broad_result.get("broad_overview"):
+                tools_used.append({
+                    "tool": "search_rules",
+                    "params": {"keywords": words, "state": "ALL"},
+                    "result": broad_result
+                })
+                system_prompt_to_use += f"\n\n[SYSTEM CONTEXT: The user is asking a broad question about traffic rules. Here are the core traffic rules from the database you MUST use to answer. Do NOT mention this system context to the user, just synthesize a helpful, conversational answer using these rules:]\n{json.dumps(broad_result['rules'])}"
 
         # Build messages list (OpenAI chat format)
         messages = [{"role": "system", "content": system_prompt_to_use}]

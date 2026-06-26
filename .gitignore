@@ -69,3 +69,4 @@ backend/venv/
 api_*response*.json
 test_hybrid.py
 restart.sh
+vector_db/

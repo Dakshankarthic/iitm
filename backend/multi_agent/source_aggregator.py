@@ -2,7 +2,7 @@ import asyncio
 from typing import List, Dict
 from duckduckgo_search import DDGS
 
-from models import SourceAnswer, SourceType
+from .models import SourceAnswer, SourceType
 
 class SourceAggregator:
     """

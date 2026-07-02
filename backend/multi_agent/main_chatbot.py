@@ -1,11 +1,11 @@
 import asyncio
 from typing import Dict, List
 
-from source_aggregator import SourceAggregator
-from judge_llm import JudgeLLM
-from synthesizer import IterationAwareSynthesizer
-from models import SourceAnswer, FinalOutput
-from config import config
+from .source_aggregator import SourceAggregator
+from .judge_llm import JudgeLLM
+from .synthesizer import IterationAwareSynthesizer
+from .models import SourceAnswer, FinalOutput
+from .config import config
 
 class TrafficPolicyChatbot:
     """

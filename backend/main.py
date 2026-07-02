@@ -22,6 +22,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
 
 # Import Modules
 from backend.modules.agent.engine import AgentEngine
+from backend.multi_agent.main_chatbot import TrafficPolicyChatbot
 from backend.modules.fines.lookup import FineLookup
 from backend.modules.rules.loader import RulesLoader
 from backend.modules.geofencing.engine import GeofencingEngine
@@ -48,9 +49,18 @@ CORS_ORIGINS = [
     "https://*.netlify.app",
     "https://drivelegalv1.netlify.app",
     "http://localhost:8081",
-    "http://localhost:19006",
-    "*",  # Remove this line once your Netlify domain is finalized
+    "http://localhost:3000",
+    "*"
 ]
+
+if IS_PRODUCTION:
+    # Restrict CORS in production
+    CORS_ORIGINS = [
+        "https://drivelegalv1.netlify.app",
+        # Add your own custom domain here if you have one
+    ]
+    print(f"Running in PRODUCTION mode. CORS restricted to: {CORS_ORIGINS}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -91,6 +101,7 @@ geofencing     = GeofencingEngine(ZONES_DIR)
 
 # ── Initialize the AI Agent ───────────────────────────────────────────────────
 agent = AgentEngine(fine_lookup, rules_loader, geofencing)
+multi_agent_bot = TrafficPolicyChatbot()
 
 # ── Request / Response Models ─────────────────────────────────────────────────
 
@@ -197,27 +208,43 @@ async def transcribe_audio(request: TranscribeRequest = Body(...)):
                 pass
 
 @app.post("/query")
-def handle_query(request: QueryRequest = Body(...)):
+async def handle_query(request: QueryRequest = Body(...)):
     """
-    Main AI agent endpoint.
-    
-    The agent autonomously decides which tools to call
-    (fine lookup, rule lookup, zone check) and synthesizes a natural language
-    response grounded in real data.
-    
-    Falls back to keyword-based matching if neither Ollama nor Gemini is available.
+    Main AI agent endpoint, now using the Multi-Agent Architecture.
     """
-    result = agent.run(
-        user_text=request.text,
-        conversation_history=request.history,
-        gps=request.gps,
-        vehicle=request.vehicle,
-        location_name=request.location_name,
-        image_base64=request.image_base64,
-        image_mime=request.image_mime or "image/jpeg",
-    )
-    result["citations"] = _citations_from_tools(result.get("tools_used") or [])
-    return result
+    try:
+        # Multimodal Check: If the user uploaded an image (Challan/Ticket), use the Vision Agent
+        if request.image_base64:
+            vision_result = agent.run(
+                user_text=request.text,
+                conversation_history=request.history,
+                gps=request.gps,
+                vehicle=request.vehicle,
+                location_name=request.location_name,
+                image_base64=request.image_base64,
+                image_mime=request.image_mime or "image/jpeg",
+            )
+            vision_result["citations"] = _citations_from_tools(vision_result.get("tools_used") or [])
+            return vision_result
+            
+        # Otherwise, run the new Multi-Agent text pipeline
+        result = await multi_agent_bot.process_query(request.text)
+        
+        # Map to the format expected by the frontend
+        return {
+            "response": result["answer"],
+            "citations": [f"Source: {s}" for s in result["metadata"].get("sources_consulted", [])],
+            "model": "Multi-Agent System",
+            "metadata": result["metadata"]
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "response": f"Error running multi-agent: {e}",
+            "citations": [],
+            "model": "Error"
+        }
 
 
 def _citations_from_tools(tools_used: list) -> list:

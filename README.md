@@ -335,7 +335,7 @@ copy .env.example .env
 # Edit .env with your GEMINI_API_KEY (optional)
 
 # 5. Pull an Ollama model (choose one)
-ollama pull qwen2.5-coder:7b       # Good for tool calling
+ollama pull gemma2:9b              # Default model used by the backend
 ollama pull llama3.2-vision         # Adds image analysis support
 
 # 6. (Optional) Pull embedding model for RAG

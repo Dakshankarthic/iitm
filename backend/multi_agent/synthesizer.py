@@ -2,9 +2,9 @@ import json
 from typing import List, Dict
 from datetime import datetime
 from openai import AsyncOpenAI
-from models import SourceAnswer, FinalOutput
-from constraint_enforcer import ConstraintEnforcer
-from config import config
+from .models import SourceAnswer, FinalOutput
+from .constraint_enforcer import ConstraintEnforcer
+from .config import config
 
 SYNTHESIZER_SYSTEM_PROMPT = """You are a **Traffic Helpdesk Assistant** for Indian citizens.
 

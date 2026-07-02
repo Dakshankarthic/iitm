@@ -2,8 +2,8 @@ import json
 import asyncio
 from typing import List, Dict, Any
 from openai import AsyncOpenAI
-from models import SourceAnswer, JudgeEvaluation, SourceType
-from config import config
+from .models import SourceAnswer, JudgeEvaluation, SourceType
+from .config import config
 
 JUDGE_SYSTEM_PROMPT = """You are a **Senior Traffic Policy Judge & Fact-Checker** for a government traffic authority chatbot.
 

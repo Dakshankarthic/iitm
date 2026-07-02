@@ -222,13 +222,18 @@ class AgentEngine:
 
     def _init_ollama(self):
         """Initialize Ollama via OpenAI-compatible API."""
+        if os.getenv("DISABLE_OLLAMA", "false").lower() == "true":
+            logger.info("[Agent] Ollama is explicitly disabled via DISABLE_OLLAMA. Skipping local AI.")
+            return
+
         ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-        ollama_model = os.getenv("OLLAMA_MODEL", "gemma2:9b")
+        ollama_api_key = os.getenv("OLLAMA_API_KEY", "ollama")
+        ollama_model = os.getenv("OLLAMA_MODEL", "gemma4:31b-cloud")
         ollama_vision_model = os.getenv("OLLAMA_VISION_MODEL", "llama3.2-vision:latest")
 
         try:
             from openai import OpenAI
-            client = OpenAI(base_url=ollama_base_url, api_key="ollama")
+            client = OpenAI(base_url=ollama_base_url, api_key=ollama_api_key)
             # Quick connectivity check — list models
             client.models.list()
             self.ollama_client = client
